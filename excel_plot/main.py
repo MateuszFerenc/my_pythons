@@ -3,6 +3,7 @@ from openpyxl import load_workbook
 import tkinter as tk
 from tkinter.filedialog import askopenfilename
 from tkinter.colorchooser import askcolor
+from statistics import mean, stdev 
 
 def print_help():
     print("Plot generator from excel options (2023) Mateusz Ferenc:")
@@ -12,7 +13,7 @@ def print_help():
     print("\tselect <row-start> <row-end> <column-start> <column-end> - select data within given range (column accepts excel column representation)")
     print("\tdata or data <data-set> - print loaded datasets (only informations) / print contents of <data-set>")
     print("\tclear or clear <data-set> - clear whole database / clear <data-set> entry")
-    print("\tconfig plot or config <data-set> - configure plotter properties / configure <data-set> plot properties")
+    print("\tconfig plot or config data or config <data-set> - configure plotter properties / configure each dataset plot properties / configure <data-set> plot properties")
     print("\tgenerate - generate plot from given data")
 
 def excel_column_to_num(col: str) -> (None | int):
@@ -26,6 +27,13 @@ def excel_column_to_num(col: str) -> (None | int):
         else:
             return None
     return col_num
+
+def input_catch(text: str):
+    try:
+        temp = input(text)
+        return temp
+    except KeyboardInterrupt:
+        return None
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -64,12 +72,13 @@ if __name__ == "__main__":
                 path = askopenfilename(title="Choose excel file", filetypes=[("Excel files", ".xlsx")], parent=root)
                 try:
                     workbook = load_workbook(path)
-                    current_sheet = workbook.active
-                    print(f"{current_sheet.title} loaded")
                 except FileNotFoundError:
                     print(f"{path} file not found...")
                 except Exception as e:
                     print(f"{e}")                   
+                else:
+                    current_sheet = workbook.active
+                    print(f"{current_sheet.title} loaded")
         elif command == "unload":
             if workbook is not None:
                 workbook.remove()
@@ -79,10 +88,16 @@ if __name__ == "__main__":
         elif command == "select":
             if len(command_data) == 4:
                 row_from, row_to, col_from, col_to = int(command_data[0]), int(command_data[1]), command_data[2], command_data[3]
-                col_from = excel_column_to_num(col_from) + 1
-                col_to = excel_column_to_num(col_to) + 1
+                col_ok = True
+                temp = excel_column_to_num(col_from)
+                col_from = temp + 1
+                if temp is None:
+                    col_ok = False
+                temp = excel_column_to_num(col_to)
+                col_from = temp + 1
+                if temp is None:
+                    col_ok =  False
                 temp_data = []
-                data_is_valid = True
                 if row_from <= row_to and col_from <= col_to:
                     try:
                         for row in range(row_from, row_to + 1):
@@ -92,13 +107,20 @@ if __name__ == "__main__":
                                     temp_data.append(round(value, 4))
                                 else:
                                     print(f"value: {value} in row: {row}, col: {col} is not int of float type\nType: {type(value)}\nRemoving selected data...")
-                                    data_is_valid = False
                                     raise Exception("data is not valid")
-                    except Exception as e:
-                        print(e)  
-                    if data_is_valid:
-                        data_name = input("Data is valid, enter name of data set\n?")
-                        data[data_name] = {}
+                    except:
+                        pass
+                    else:
+                        print(f"Data is valid.\nLoaded datasets: {datasets}")
+                        datasets = [d for d in data.keys()]
+                        can_exit = False
+                        while not can_exit:
+                            data_name = input("Enter name of new data set?")
+                            if data_name not in ('plot', 'data'):
+                                data[data_name] = {}
+                                can_exit = True
+                            else:
+                                print(f"{data_name} is protected name, use another..")
                         data[data_name]["data"] = temp_data
                         data[data_name]["info"] = {}
                         data[data_name]["info"]["sheet_name"] = current_sheet.title
@@ -108,17 +130,21 @@ if __name__ == "__main__":
                         data[data_name]["properites"] = {}
                         data[data_name]["properites"]["label"] = label
                         print("Color pick window summoned..")
-                        data[data_name]["properites"]["color"] = askcolor(title="Choose plot color", parent=root)[1]
+                        color = askcolor(title="Choose plot color", parent=root)
+                        data[data_name]["properites"]["color"] = color[1] if color != (None, None) else "#000000"
                 else:
-                    pass
+                    print("Selected range is not valid...\nTry again")
             else:
-                pass
+                print("Use: select <row-start> <row-end> <column-start> <column-end>")
         elif command == "data":
             if len(command_data) == 0:
                 if len(data):
                     for data_set in data.keys():
                         print(f"Dataset: \"{data_set}\" of size: {len(data[data_set]['data'])} elements")
                         print(f"Sheet name: {data[data_set]['info']['sheet_name']}, data selected= rows range {data[data_set]['info']['row_from_to']}, columns range {data[data_set]['info']['col_from_to']}")
+                        print(f"Properties - label: {data[data_set]['properties']['label']}, color: {data[data_set]['properties']['color']}")
+                        temp = data[data_set]['data']
+                        print(f"Statistics - min: {min(temp)}, max: {max(temp)}, avg: {mean(temp)}, stdev: {stdev(temp)}")
                 else:
                     print(f"No data loaded.\nUse load and select commands to load new data")
         elif command == "clear":
@@ -130,11 +156,13 @@ if __name__ == "__main__":
                 if command_data[0] in data.keys():
                     del data[command_data[0]]
                     print(f"\"{command_data[0]}\" entries was removed from database")
+            else:
+                print("Use: clear or clear <data-set>")
         elif command == "config":
             if len(command_data) == 1:
                 if command_data[0] == "plot":
                     can_exit = False
-                    while(not can_exit):
+                    while not can_exit:
                         plot_properties["dpi"] = int(input("Enter plot DPI\n?"))
                         plot_properties["xlabel"] = input("Enter x (horizontal) label name\n?")
                         plot_properties["ylabel"] = input("Enter y (vertical) label name\n?")
@@ -178,13 +206,17 @@ if __name__ == "__main__":
                             can_exit = True
                             plot_properties_ok = True
                             print("OK!")
-                elif command_data[0] in data.keys():
+                elif command_data[0] == "data":
                     can_exit = False
-                    while(not can_exit):
+                    while not can_exit:
                         for ds_name in data.keys():
                             print(f"{ds_name}:")
-                            data[data_name]["properites"]["label"] = input(f"Enter data label for \"{ds_name}\"\n?")
-                            data[data_name]["properites"]["color"] = askcolor(title=f"Choose plot color for \"{ds_name}\"", parent=root)[1]
+                            label = data[ds_name[0]]["properites"]["label"]
+                            from_input = input_catch(f"Enter data label for \"{ds_name}\" or preserve old {label} using ctrl+c\n?")
+                            data[ds_name]["properites"]["label"] = from_input if from_input is not None else label
+                            color = data[ds_name[0]]["properites"]["color"]
+                            selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
+                            data[ds_name]["properites"]["color"] = selected_color[1] if selected_color != (None, None) else color
                         for key in data.keys():
                             print(f"{key}:")
                             for k in data[key]["properites"].keys():
@@ -193,6 +225,18 @@ if __name__ == "__main__":
                         if ans.lower() in ("y", "yes", "yep"):
                             can_exit = True
                             print("OK!")
+                elif command_data[0] in data.keys():
+                    can_exit = False
+                    while not can_exit:
+                        print(f"{command_data[0]}:")
+                        label = data[command_data[0]]["properites"]["label"]
+                        from_input = input_catch(f"Enter data label for \"{ds_name}\" or preserve old {label} using ctrl+c\n?")
+                        data[data_name]["properites"]["label"] = from_input if from_input is not None else label
+                        color = data[command_data[0]]["properites"]["color"]
+                        selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
+                        data[data_name]["properites"]["color"] = selected_color[1] if selected_color != (None, None) else color
+            else:
+                print("Use: config plot or config data or config <data-set>")
         elif command == "generate":
             if plot_properties_ok and len(data):
                 for data_set in data.keys():
@@ -203,18 +247,19 @@ if __name__ == "__main__":
                 plotter.grid(visible=plot_properties["grid"])
                 plotter.legend()
 
-                plotter.ion()
+                fig = plotter.gcf()
+                plotter.show()
 
                 ans = input("Are you ok with this plot? (y/n)?")
                 if ans.lower() in ("y", "yes", "yep"):
-                    plotter.savefig("output.png", dpi=int(plot_properties["dpi"]))
+                    fig.savefig("output.png", dpi=int(plot_properties["dpi"]))
                 plotter.clf()
                 plotter.close(None)
+                del fig
             else:
                 print("Use \"config plot\" command to configure plotter properites..")
-        elif command == "exec": # debug-only
-            print(command_data[0])
+        elif command.startswith("exec"): # debug-only
             try:
-                exec(command_data[0])
+                exec(command.replace("exec ", ""))
             except Exception as e:
                 print(e)
