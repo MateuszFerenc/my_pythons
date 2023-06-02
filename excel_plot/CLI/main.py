@@ -16,7 +16,7 @@ def print_help():
     print("\tconfig plot or config data or config <data-set> - configure plotter properties / configure each dataset plot properties / configure <data-set> plot properties")
     print("\tgenerate - generate plot from given data")
 
-def excel_column_to_num(col: str) -> (None | int):
+def excel_column_to_num(col: str) -> (int | None):
     if type(col) is not str:
         return None
     col_num = 0
@@ -28,12 +28,17 @@ def excel_column_to_num(col: str) -> (None | int):
             return None
     return col_num
 
-def input_catch(text: str):
+def input_catch(text: str, do_return = None) -> (str | None):
     try:
         temp = input(text)
-        return temp
+        if len(temp):
+            return temp
+        else:
+            raise Exception("Empty Input")
     except KeyboardInterrupt:
-        return None
+        return do_return
+    except:
+        return do_return
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -50,28 +55,38 @@ if __name__ == "__main__":
         "label_style": "italic",
         "title": None,
         "title_weight": "bold",
-        "title_style": "bold",
+        "title_style": "normal",
         "grid": False
     }
     plot_properties_ok = False
 
     while(True):
-        command = input(">")
-        command, command_data = command.split()[0].lower(), command.split()[1:]
+        command = input_catch(">", "help")
         if command in ("h", "help"):
             print_help()
-        elif command in ("q", "quit", "exit", "leave"):
+            continue
+        if command.startswith("exec"): # debug-only
+            try:
+                exec(command.replace("exec ", ""))
+            except Exception as e:
+                print(e)
+            continue
+        command, command_data = command.split()[0].lower(), command.split()[1:]
+        if command in ("q", "quit", "exit", "leave"):
             if workbook is not None:
                 workbook.close
             exit()
         elif command == "load":
             ans = ""
             if workbook is not None:
-                ans = input(f"{current_sheet.title} is currently loaded, unload? (y/n)")
+                ans = input_catch(f"{current_sheet.title} is currently loaded, unload? (y/n)", "n")
             if ans.lower() in ("y", "yes", "yep") or workbook is None:
-                path = askopenfilename(title="Choose excel file", filetypes=[("Excel files", ".xlsx")], parent=root)
+                path = askopenfilename(title="Choose excel file", filetypes=[("Excel files", ".xlsx .xlsm .xltx .xltm"), ("Comma Separated Values", ".csv")], parent=root)
                 try:
-                    workbook = load_workbook(path)
+                    if path.endswith(".csv"):
+                        raise Exception(".csv file format is not yet supported")
+                    else:
+                        workbook = load_workbook(path)
                 except FileNotFoundError:
                     print(f"{path} file not found...")
                 except Exception as e:
@@ -94,11 +109,11 @@ if __name__ == "__main__":
                 if temp is None:
                     col_ok = False
                 temp = excel_column_to_num(col_to)
-                col_from = temp + 1
+                col_to = temp + 1
                 if temp is None:
                     col_ok =  False
                 temp_data = []
-                if row_from <= row_to and col_from <= col_to:
+                if col_ok and (row_from <= row_to and col_from <= col_to):
                     try:
                         for row in range(row_from, row_to + 1):
                             for col in range(col_from, col_to + 1):
@@ -106,17 +121,17 @@ if __name__ == "__main__":
                                 if type(value) is int or type(value) is float:
                                     temp_data.append(round(value, 4))
                                 else:
-                                    print(f"value: {value} in row: {row}, col: {col} is not int of float type\nType: {type(value)}\nRemoving selected data...")
+                                    print(f"value: {value} in row: {row}, col: {col} is not int or float type\nType: {type(value)}\nRemoving selected data...")
                                     raise Exception("data is not valid")
                     except:
                         pass
                     else:
-                        print(f"Data is valid.\nLoaded datasets: {datasets}")
                         datasets = [d for d in data.keys()]
+                        print(f"Data is valid.\nLoaded datasets: {datasets}")
                         can_exit = False
                         while not can_exit:
-                            data_name = input("Enter name of new data set?")
-                            if data_name not in ('plot', 'data'):
+                            data_name = input_catch("Enter name of new data set?")
+                            if data_name not in ('plot', 'data') and data_name is not None:
                                 data[data_name] = {}
                                 can_exit = True
                             else:
@@ -126,12 +141,12 @@ if __name__ == "__main__":
                         data[data_name]["info"]["sheet_name"] = current_sheet.title
                         data[data_name]["info"]["row_from_to"] = f"{row_from} : {row_to}"
                         data[data_name]["info"]["col_from_to"] = f"{command_data[2]} : {command_data[3]}"
-                        label = input("Enter data label\n?")
-                        data[data_name]["properites"] = {}
-                        data[data_name]["properites"]["label"] = label
+                        label = input_catch("Enter data label\n?")
+                        data[data_name]["properties"] = {}
+                        data[data_name]["properties"]["label"] = label
                         print("Color pick window summoned..")
                         color = askcolor(title="Choose plot color", parent=root)
-                        data[data_name]["properites"]["color"] = color[1] if color != (None, None) else "#000000"
+                        data[data_name]["properties"]["color"] = color[1] if color != (None, None) else "#000000"
                 else:
                     print("Selected range is not valid...\nTry again")
             else:
@@ -163,65 +178,91 @@ if __name__ == "__main__":
                 if command_data[0] == "plot":
                     can_exit = False
                     while not can_exit:
-                        plot_properties["dpi"] = int(input("Enter plot DPI\n?"))
-                        plot_properties["xlabel"] = input("Enter x (horizontal) label name\n?")
-                        plot_properties["ylabel"] = input("Enter y (vertical) label name\n?")
+                        old = plot_properties["dpi"]
+                        sel = input_catch(f"Enter plot DPI, or preserve old \"{old}\" leave empty and hit enter\n?")
+                        plot_properties["dpi"] = old if sel is None else sel
+
+                        old = plot_properties["xlabel"]
+                        sel = input_catch(f"Enter x (horizontal) label name, or preserve old \"{old}\" leave empty and hit enter\n?")
+                        plot_properties["xlabel"] = old if sel is None else sel
+
+                        old = plot_properties["ylabel"]
+                        sel = input_catch(f"Enter y (vertical) label name, or preserve old \"{old}\" leave empty and hit enter\n?")
+                        plot_properties["ylabel"] = old if sel is None else sel
+
                         font_weights = ('ultralight', 'light', 'normal', 'regular', 'book', 'medium', 'roman', 'semibold', 'demibold', 'demi', 'bold', 'heavy', 'extra bold', 'black')
-                        w = input(f"Enter labels font weight (valid: {font_weights})\n?")
-                        if w in font_weights:
-                            plot_properties["label_weight"] = w
+
+                        old = plot_properties["label_weight"]
+                        sel = input_catch(f"Enter labels font weight (valid: {font_weights}), or preserve old \"{old}\" leave empty and hit enter\n?")
+                        if sel in font_weights or sel is None:
+                            plot_properties["label_weight"] = old if sel is None else sel
                         else:
-                            print(f"fontweight: {w} is not valid..\n\"bold\" used as default")
+                            print(f"fontweight: {sel} is not valid..\n\"bold\" used as default")
                             plot_properties["label_weight"] = "bold"
+
                         font_styles = ('normal', 'italic', 'oblique')
-                        s = input(f"Enter labels font style (valid: {font_styles})\n?")
-                        if s in font_styles:
-                            plot_properties["label_style"] = s
+
+                        old = plot_properties["label_style"]
+                        sel = input_catch(f"Enter labels font style (valid: {font_styles}), or preserve old \"{old}\" leave empty and hit enter\n?")
+                        if sel in font_styles or sel is None:
+                            plot_properties["label_style"] = old if sel is None else sel
                         else:
-                            print(f"fontstyle: {s} is not valid..\n\"light\" used as default")
+                            print(f"fontstyle: {sel} is not valid..\n\"light\" used as default")
                             plot_properties["label_style"] = "light"
-                        plot_properties["title"] = input("Enter plot title\n?")
-                        w = input(f"Enter title font weight (valid: {font_weights})\n?")
-                        if w in font_weights:
-                            plot_properties["title_weight"] = w
+
+                        old = plot_properties["title"]
+                        sel = input_catch(f"Enter plot title, or preserve old \"{old}\" leave empty and hit enter\n?")
+                        plot_properties["title"] = old if sel is None else sel
+
+                        old = plot_properties["title_weight"]
+                        sel = input_catch(f"Enter title font weight (valid: {font_weights}), or preserve old \"{old}\" leave empty and hit enter\n?")
+                        if sel in font_weights or sel is None:
+                            plot_properties["title_weight"] = old if sel is None else sel
                         else:
-                            print(f"fontweight: {w} is not valid..\n\"bold\" used as default")
+                            print(f"fontweight: {sel} is not valid..\n\"bold\" used as default")
                             plot_properties["title_weight"] = "bold"
-                        s = input(f"Enter labels font style (valid: {font_styles})\n?")
-                        if s in font_styles:
-                            plot_properties["title_style"] = s
+
+                        old = plot_properties["title_style"]
+                        sel = input_catch(f"Enter labels font style (valid: {font_styles}), or preserve old \"{old}\" leave empty and hit enter\n?")
+                        if sel in font_styles or sel is None:
+                            plot_properties["title_style"] = old if sel is None else sel
                         else:
-                            print(f"fontstyle: {s} is not valid..\n\"blod\" used as default")
-                            plot_properties["title_style"] = "bold"
-                        g = input("Enable grid? (valid: True, False)\n?")
-                        if g in ("True", "False"):
-                            plot_properties["grid"] = g
+                            print(f"fontstyle: {sel} is not valid..\n\"normal\" used as default")
+                            plot_properties["title_style"] = "normal"
+
+                        old = plot_properties["grid"]
+                        sel = input_catch(f"Enable grid? (valid: True, False), or preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        if sel in ("True", "False"):
+                            plot_properties["grid"] = sel
                         else:
-                            print(f"option: {g} is not valid..\n\"False\" used as default")
+                            print(f"option: {sel} is not valid..\n\"False\" used as default")
+
                         print()
                         for key in plot_properties.keys():
                             print(f"{key}: {plot_properties[key]}")
-                        ans = input("Are you ok with these values? (y/n)?")
+                        ans = input_catch("Are you ok with these values? (y/n)?", "n")
                         if ans.lower() in ("y", "yes", "yep"):
                             can_exit = True
                             plot_properties_ok = True
                             print("OK!")
+                elif len(data) == 0:
+                    print("First you need to add dataset, using select command")
                 elif command_data[0] == "data":
                     can_exit = False
                     while not can_exit:
                         for ds_name in data.keys():
                             print(f"{ds_name}:")
-                            label = data[ds_name[0]]["properites"]["label"]
-                            from_input = input_catch(f"Enter data label for \"{ds_name}\" or preserve old {label} using ctrl+c\n?")
-                            data[ds_name]["properites"]["label"] = from_input if from_input is not None else label
-                            color = data[ds_name[0]]["properites"]["color"]
+                            label = data[ds_name[0]]["properties"]["label"]
+                            from_input = input_catch(f"Enter data label for \"{ds_name}\" or preserve old {label} leave empty and hit enter\n?")
+                            data[ds_name]["properties"]["label"] = label if from_input is None else from_input
+                            color = data[ds_name[0]]["properties"]["color"]
                             selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
-                            data[ds_name]["properites"]["color"] = selected_color[1] if selected_color != (None, None) else color
+                            data[ds_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else color
                         for key in data.keys():
                             print(f"{key}:")
-                            for k in data[key]["properites"].keys():
-                                print(f"\t{k}: {data[key]['properites'][k]}")
-                        ans = input("Are you ok with these values? (y/n)?")
+                            for k in data[key]["properties"].keys():
+                                print(f"\t{k}: {data[key]['properties'][k]}")
+                        ans = input_catch("Are you ok with these values? (y/n)?", "n")
                         if ans.lower() in ("y", "yes", "yep"):
                             can_exit = True
                             print("OK!")
@@ -229,18 +270,18 @@ if __name__ == "__main__":
                     can_exit = False
                     while not can_exit:
                         print(f"{command_data[0]}:")
-                        label = data[command_data[0]]["properites"]["label"]
-                        from_input = input_catch(f"Enter data label for \"{ds_name}\" or preserve old {label} using ctrl+c\n?")
-                        data[data_name]["properites"]["label"] = from_input if from_input is not None else label
-                        color = data[command_data[0]]["properites"]["color"]
+                        label = data[command_data[0]]["properties"]["label"]
+                        from_input = input_catch(f"Enter data label for \"{ds_name}\" or preserve old {label} leave empty and hit enter\n?")
+                        data[data_name]["properties"]["label"] = label if from_input is None else from_input
+                        color = data[command_data[0]]["properties"]["color"]
                         selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
-                        data[data_name]["properites"]["color"] = selected_color[1] if selected_color != (None, None) else color
+                        data[data_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else color
             else:
                 print("Use: config plot or config data or config <data-set>")
         elif command == "generate":
             if plot_properties_ok and len(data):
                 for data_set in data.keys():
-                    plotter.plot(data[data_set]['data'], color=data[data_set]["properites"]["color"], label=data[data_set]["properites"]["label"])
+                    plotter.plot(data[data_set]['data'], color=data[data_set]["properties"]["color"], label=data[data_set]["properties"]["label"])
                 plotter.xlabel(xlabel=plot_properties["xlabel"], weight=plot_properties["label_weight"], style=plot_properties["label_style"])
                 plotter.ylabel(ylabel=plot_properties["ylabel"], weight=plot_properties["label_weight"], style=plot_properties["label_style"])
                 plotter.title(label=plot_properties["title"], weight=plot_properties["title_weight"], style=plot_properties["title_style"])
@@ -250,16 +291,11 @@ if __name__ == "__main__":
                 fig = plotter.gcf()
                 plotter.show()
 
-                ans = input("Are you ok with this plot? (y/n)?")
+                ans = input_catch("Are you ok with this plot? (y/n)?", "n")
                 if ans.lower() in ("y", "yes", "yep"):
                     fig.savefig("output.png", dpi=int(plot_properties["dpi"]))
                 plotter.clf()
                 plotter.close(None)
                 del fig
             else:
-                print("Use \"config plot\" command to configure plotter properites..")
-        elif command.startswith("exec"): # debug-only
-            try:
-                exec(command.replace("exec ", ""))
-            except Exception as e:
-                print(e)
+                print("Use \"config plot\" command to configure plotter properties..")
