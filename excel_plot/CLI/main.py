@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter.filedialog import askopenfilename
 from tkinter.colorchooser import askcolor
 from statistics import mean, stdev 
+from csv import *
 
 def print_help():
     print("Plot generator from excel options (2023) Mateusz Ferenc:")
