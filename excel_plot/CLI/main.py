@@ -4,14 +4,15 @@ import tkinter as tk
 from tkinter.filedialog import askopenfilename
 from tkinter.colorchooser import askcolor
 from statistics import mean, stdev 
-from csv import *
+from csv import reader as csv_reader
+from os.path import split as path_split
 
 def print_help():
     print("Plot generator from excel options (2023) Mateusz Ferenc:")
     print("\tq, quit, exit, leave - to exit")
     print("\tload - open file dialog window to select file to load data from")
     print("\tunload - delete loaded file from temporary memory")
-    print("\tselect <row-start> <row-end> <column-start> <column-end> - select data within given range (column accepts excel column representation)")
+    print("\tselect <row-start> <row-end> <column-start> <column-end> or select csv <column> <rows> - select data within given range (column accepts excel column representation) / select data from <column> of <rows> in csv file")
     print("\tdata or data <data-set> - print loaded datasets (only informations) / print contents of <data-set>")
     print("\tclear or clear <data-set> - clear whole database / clear <data-set> entry")
     print("\tconfig plot or config data or config <data-set> - configure plotter properties / configure each dataset plot properties / configure <data-set> plot properties")
@@ -41,12 +42,22 @@ def input_catch(text: str, do_return = None) -> (str | None):
     except:
         return do_return
 
+def is_float(element: any) -> bool:
+    if element is None: 
+        return False
+    try:
+        float(element)
+        return True
+    except ValueError:
+        return False
+
 if __name__ == "__main__":
     root = tk.Tk()
     root.withdraw()
 
     workbook = None
     current_sheet = None
+    csv_file = None
     data = {}
     plot_properties = {
         "dpi": 500,
@@ -60,6 +71,16 @@ if __name__ == "__main__":
         "grid": False
     }
     plot_properties_ok = False
+    current_file_type = ""
+    current_filename = ""
+    supported_file_types = {
+        "excel": (".xlsx", ".xlsm", ".xltx", ".xltm"),
+        "csv": ".csv"
+    }
+    fs_names = {
+        "excel": "Excel files",
+        "csv": "Comma Separated Values"
+    }
 
     while(True):
         command = input_catch(">", "help")
@@ -75,83 +96,132 @@ if __name__ == "__main__":
         command, command_data = command.split()[0].lower(), command.split()[1:]
         if command in ("q", "quit", "exit", "leave"):
             if workbook is not None:
-                workbook.close
+                if current_file_type in supported_file_types['excel']:
+                    workbook.remove()
+                elif current_file_type in supported_file_types['csv']:
+                    csv_file.close()
             exit()
         elif command == "load":
             ans = ""
             if workbook is not None:
                 ans = input_catch(f"{current_sheet.title} is currently loaded, unload? (y/n)", "n")
             if ans.lower() in ("y", "yes", "yep") or workbook is None:
-                path = askopenfilename(title="Choose excel file", filetypes=[("Excel files", ".xlsx .xlsm .xltx .xltm"), ("Comma Separated Values", ".csv")], parent=root)
+                path = askopenfilename(title="Choose excel file", filetypes=[(fs_names['excel'], " ".join(supported_file_types['excel'])), (fs_names['csv'], " ".join(supported_file_types['csv']))], parent=root)
                 try:
-                    if path.endswith(".csv"):
-                        raise Exception(".csv file format is not yet supported")
-                    else:
+                    if len(path) == 0:
+                        raise Exception("Empty path, no file selected.")
+                    current_file_type = "." + path_split(path)[1].rsplit(".", 1)[1]
+                    current_filename = path_split(path)[1].rsplit(".", 1)[0]
+                    if current_file_type in supported_file_types["csv"]:
+                        try:
+                            csv_file = open(path, 'r')
+                            workbook = csv_reader(csv_file)
+                        except Exception as e:
+                            raise Exception(e)
+                    elif current_file_type in supported_file_types["excel"]:
                         workbook = load_workbook(path)
+                        current_sheet = workbook.active
+                    else:
+                        raise Exception(f"{current_file_type} is unsupported..")
                 except FileNotFoundError:
                     print(f"{path} file not found...")
                 except Exception as e:
-                    print(f"{e}")                   
+                    print(e)
                 else:
-                    current_sheet = workbook.active
-                    print(f"{current_sheet.title} loaded")
+                    print(f"{current_filename}{current_file_type} loaded")
         elif command == "unload":
             if workbook is not None:
-                workbook.remove()
-                print(f"{current_sheet.title} unloaded")
-                workbook = None
+                if current_file_type in supported_file_types['excel']:
+                    workbook.remove()
+                    print(f"{current_sheet.title} unloaded")
+                    workbook = None
+                elif current_file_type in supported_file_types['csv']:
+                    workbook = None
+                    csv_file.close()
             current_sheet = None
+            current_file_type = ""
+            current_filename = ""
         elif command == "select":
-            if len(command_data) == 4:
-                row_from, row_to, col_from, col_to = int(command_data[0]), int(command_data[1]), command_data[2], command_data[3]
-                col_ok = True
-                temp = excel_column_to_num(col_from)
-                col_from = temp + 1
-                if temp is None:
-                    col_ok = False
-                temp = excel_column_to_num(col_to)
-                col_to = temp + 1
-                if temp is None:
-                    col_ok =  False
-                temp_data = []
-                if col_ok and (row_from <= row_to and col_from <= col_to):
-                    try:
-                        for row in range(row_from, row_to + 1):
-                            for col in range(col_from, col_to + 1):
-                                value = current_sheet.cell(row=row, column=col).value
-                                if type(value) is int or type(value) is float:
-                                    temp_data.append(round(value, 4))
-                                else:
-                                    print(f"value: {value} in row: {row}, col: {col} is not int or float type\nType: {type(value)}\nRemoving selected data...")
-                                    raise Exception("data is not valid")
-                    except:
-                        pass
-                    else:
-                        datasets = [d for d in data.keys()]
-                        print(f"Data is valid.\nLoaded datasets: {datasets}")
-                        can_exit = False
-                        while not can_exit:
-                            data_name = input_catch("Enter name of new data set?")
-                            if data_name not in ('plot', 'data') and data_name is not None:
-                                data[data_name] = {}
-                                can_exit = True
-                            else:
-                                print(f"{data_name} is protected name, use another..")
-                        data[data_name]["data"] = temp_data
-                        data[data_name]["info"] = {}
-                        data[data_name]["info"]["sheet_name"] = current_sheet.title
-                        data[data_name]["info"]["row_from_to"] = f"{row_from} : {row_to}"
-                        data[data_name]["info"]["col_from_to"] = f"{command_data[2]} : {command_data[3]}"
-                        label = input_catch("Enter data label\n?")
-                        data[data_name]["properties"] = {}
-                        data[data_name]["properties"]["label"] = label
-                        print("Color pick window summoned..")
-                        color = askcolor(title="Choose plot color", parent=root)
-                        data[data_name]["properties"]["color"] = color[1] if color != (None, None) else "#000000"
-                else:
-                    print("Selected range is not valid...\nTry again")
+            if workbook is None:
+                print("First load file using load command")
             else:
-                print("Use: select <row-start> <row-end> <column-start> <column-end>")
+                data_is_valid = False
+                temp_data = []
+                r0, r1, c0, c1 = None, None, None, None
+                if len(command_data) == 3 and command_data[0] == "csv" and command_data[1].isalpha() and command_data[2].isdigit() and current_file_type in supported_file_types['csv']:
+                    ncol = len(next(workbook))
+                    csv_file.seek(0) 
+                    col = excel_column_to_num(command_data[1])
+                    if col is None or col > ncol:
+                        print(f"{command_data[1]} is wrong column")
+                        continue
+                    try:
+                        for row_num, row in enumerate(workbook):
+                            if row_num == int(command_data[2]):
+                                break
+                            value = row[col]
+                            if is_float(value) or value.isdigit():
+                                temp_data.append(round(float(value), 4))
+                            else:
+                                raise Exception(f"value: {value} in row: {row_num}, col: {col} is not int or float type\nType: {type(value)}\nRemoving selected data...")
+                    except FileExistsError:#except Exception as e:
+                        print(e)
+                    else:
+                        c0 = c1 = command_data[1]
+                        r0 = 0
+                        r1 = command_data[2]
+                        data_is_valid = True
+                elif len(command_data) == 4 and command_data[0].isdigit() and command_data[1].isdigit() and command_data[2].isalpha() and command_data[2].isalpha() and current_file_type in supported_file_types['excel']:
+                    row_from, row_to, col_from, col_to = int(command_data[0]), int(command_data[1]), command_data[2], command_data[3]
+                    temp = excel_column_to_num(col_from)
+                    col_from = temp + 1
+                    if temp is None:
+                        ok = False
+                    temp = excel_column_to_num(col_to)
+                    col_to = temp + 1
+                    if temp is None:
+                        ok =  False
+                    if ok and (row_from <= row_to and col_from <= col_to):
+                        try:
+                            for row in range(row_from, row_to + 1):
+                                for col in range(col_from, col_to + 1):
+                                    value = current_sheet.cell(row=row, column=col).value
+                                    if type(value) is int or type(value) is float:
+                                        temp_data.append(round(value, 4))
+                                    else:
+                                        raise Exception(f"value: {value} in row: {row}, col: {col} is not int or float type\nType: {type(value)}\nRemoving selected data...")
+                        except Exception as e:
+                            print(e)
+                        else:
+                            r0, r1, c0, c1 = row_from, row_to, command_data[2], command_data[3]
+                            data_is_valid = True
+                    else:
+                        print("Selected range is not valid...\nTry again")
+                else:
+                    print("Use: \"select <row-start> <row-end> <column-start> <column-end>\" or \"select csv <column> <rows>\"")
+
+                if data_is_valid:
+                    datasets = [d for d in data.keys()]
+                    print(f"Data is valid.\nLoaded datasets: {datasets}")
+                    can_exit = False
+                    while not can_exit:
+                        data_name = input_catch("Enter name of new data set?")
+                        if data_name not in ('plot', 'data') and data_name is not None:
+                            data[data_name] = {}
+                            can_exit = True
+                        else:
+                            print(f"{data_name} is protected name, use another..")
+                    data[data_name]["data"] = temp_data
+                    data[data_name]["info"] = {}
+                    data[data_name]["info"]["sheet_name"] = current_filename
+                    data[data_name]["info"]["row_from_to"] = f"{r0} : {r1}"
+                    data[data_name]["info"]["col_from_to"] = f"{c0} : {c1}"
+                    label = input_catch("Enter data label\n?")
+                    data[data_name]["properties"] = {}
+                    data[data_name]["properties"]["label"] = label
+                    print("Color pick window summoned..")
+                    color = askcolor(title="Choose plot color", parent=root)
+                    data[data_name]["properties"]["color"] = color[1] if color != (None, None) else "#000000"
         elif command == "data":
             if len(command_data) == 0:
                 if len(data):
@@ -160,9 +230,9 @@ if __name__ == "__main__":
                         print(f"Sheet name: {data[data_set]['info']['sheet_name']}, data selected= rows range {data[data_set]['info']['row_from_to']}, columns range {data[data_set]['info']['col_from_to']}")
                         print(f"Properties - label: {data[data_set]['properties']['label']}, color: {data[data_set]['properties']['color']}")
                         temp = data[data_set]['data']
-                        print(f"Statistics - min: {min(temp)}, max: {max(temp)}, avg: {mean(temp)}, stdev: {stdev(temp)}")
+                        print(f"Statistics - min: {round(min(temp), 4)}, max: {round(max(temp), 4)}, avg: {round(mean(temp), 4)}, stdev: {round(stdev(temp), 4)}")
                 else:
-                    print(f"No data loaded.\nUse load and select commands to load new data")
+                    print(f"No data loaded.\nUse \"load\" and \"select\" commands to load new data")
         elif command == "clear":
             if len(command_data) == 0:
                 data = {}
@@ -173,7 +243,7 @@ if __name__ == "__main__":
                     del data[command_data[0]]
                     print(f"\"{command_data[0]}\" entries was removed from database")
             else:
-                print("Use: clear or clear <data-set>")
+                print("Use: \"clear\" or \"clear <data-set>\"")
         elif command == "config":
             if len(command_data) == 1:
                 if command_data[0] == "plot":
@@ -278,7 +348,7 @@ if __name__ == "__main__":
                         selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
                         data[data_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else color
             else:
-                print("Use: config plot or config data or config <data-set>")
+                print("Use: \"config plot\" or \"config data\" or \"config <data-set>\"")
         elif command == "generate":
             if plot_properties_ok and len(data):
                 for data_set in data.keys():
