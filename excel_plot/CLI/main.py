@@ -108,7 +108,9 @@ if __name__ == "__main__":
         "title": None,
         "title_weight": "bold",
         "title_style": "normal",
-        "grid": False
+        "grid": False,
+        "width": 10,
+        "height": 8
     }
     plot_properties_ok = False
     current_file_type = ""
@@ -303,23 +305,23 @@ if __name__ == "__main__":
                     can_exit = False
                     while not can_exit:
                         old = plot_properties["dpi"]
-                        sel = input_catch(f"Enter plot DPI, or preserve old \"{old}\" leave empty and hit enter\n?")
-                        plot_properties["dpi"] = old if sel is None else sel
+                        sel = input_catch(f"Enter plot DPI, or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        plot_properties["dpi"] = sel
 
                         old = plot_properties["xlabel"]
-                        sel = input_catch(f"Enter x (horizontal) label name, or preserve old \"{old}\" leave empty and hit enter\n?")
-                        plot_properties["xlabel"] = old if sel is None else sel
+                        sel = input_catch(f"Enter x (horizontal) label name, or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        plot_properties["xlabel"] = sel
 
                         old = plot_properties["ylabel"]
-                        sel = input_catch(f"Enter y (vertical) label name, or preserve old \"{old}\" leave empty and hit enter\n?")
-                        plot_properties["ylabel"] = old if sel is None else sel
+                        sel = input_catch(f"Enter y (vertical) label name, or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        plot_properties["ylabel"] = sel
 
                         font_weights = ('ultralight', 'light', 'normal', 'regular', 'book', 'medium', 'roman', 'semibold', 'demibold', 'demi', 'bold', 'heavy', 'extra bold', 'black')
 
                         old = plot_properties["label_weight"]
-                        sel = input_catch(f"Enter labels font weight (valid: {font_weights}), or preserve old \"{old}\" leave empty and hit enter\n?")
-                        if sel in font_weights or sel is None:
-                            plot_properties["label_weight"] = old if sel is None else sel
+                        sel = input_catch(f"Enter labels font weight (valid: {font_weights}), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        if sel in font_weights:
+                            plot_properties["label_weight"] = sel
                         else:
                             print(f"fontweight: {sel} is not valid..\n\"bold\" used as default")
                             plot_properties["label_weight"] = "bold"
@@ -327,39 +329,47 @@ if __name__ == "__main__":
                         font_styles = ('normal', 'italic', 'oblique')
 
                         old = plot_properties["label_style"]
-                        sel = input_catch(f"Enter labels font style (valid: {font_styles}), or preserve old \"{old}\" leave empty and hit enter\n?")
-                        if sel in font_styles or sel is None:
-                            plot_properties["label_style"] = old if sel is None else sel
+                        sel = input_catch(f"Enter labels font style (valid: {font_styles}), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        if sel in font_styles:
+                            plot_properties["label_style"] = sel
                         else:
                             print(f"fontstyle: {sel} is not valid..\n\"light\" used as default")
                             plot_properties["label_style"] = "light"
 
                         old = plot_properties["title"]
-                        sel = input_catch(f"Enter plot title, or preserve old \"{old}\" leave empty and hit enter\n?")
-                        plot_properties["title"] = old if sel is None else sel
+                        sel = input_catch(f"Enter plot title, or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        plot_properties["title"] = sel
 
                         old = plot_properties["title_weight"]
-                        sel = input_catch(f"Enter title font weight (valid: {font_weights}), or preserve old \"{old}\" leave empty and hit enter\n?")
-                        if sel in font_weights or sel is None:
-                            plot_properties["title_weight"] = old if sel is None else sel
+                        sel = input_catch(f"Enter title font weight (valid: {font_weights}), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        if sel in font_weights:
+                            plot_properties["title_weight"] = sel
                         else:
                             print(f"fontweight: {sel} is not valid..\n\"bold\" used as default")
                             plot_properties["title_weight"] = "bold"
 
                         old = plot_properties["title_style"]
-                        sel = input_catch(f"Enter labels font style (valid: {font_styles}), or preserve old \"{old}\" leave empty and hit enter\n?")
-                        if sel in font_styles or sel is None:
-                            plot_properties["title_style"] = old if sel is None else sel
+                        sel = input_catch(f"Enter labels font style (valid: {font_styles}), or to  preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        if sel in font_styles:
+                            plot_properties["title_style"] = sel
                         else:
                             print(f"fontstyle: {sel} is not valid..\n\"normal\" used as default")
                             plot_properties["title_style"] = "normal"
 
                         old = plot_properties["grid"]
-                        sel = input_catch(f"Enable grid? (valid: True, False), or preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        sel = input_catch(f"Enable grid? (valid: True, False), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
                         if sel in ("True", "False"):
                             plot_properties["grid"] = sel
                         else:
                             print(f"option: {sel} is not valid..\n\"False\" used as default")
+
+                        old = plot_properties['width']
+                        sel = input_catch(f"Enter plot width (in cm), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        plot_properties["width"] = sel
+                        
+                        old = plot_properties['height']
+                        sel = input_catch(f"Enter plot height (in cm), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        plot_properties["height"] = sel
 
                         print()
                         for key in plot_properties.keys():
@@ -376,12 +386,12 @@ if __name__ == "__main__":
                     while not can_exit:
                         for ds_name in data.keys():
                             print(f"{ds_name}:")
-                            label = data[ds_name[0]]["properties"]["label"]
-                            from_input = input_catch(f"Enter data label for \"{ds_name}\" or preserve old {label} leave empty and hit enter\n?")
-                            data[ds_name]["properties"]["label"] = label if from_input is None else from_input
-                            color = data[ds_name[0]]["properties"]["color"]
+                            old = data[ds_name[0]]["properties"]["label"]
+                            sel = input_catch(f"Enter data label for \"{ds_name}\" or to preserve old {old} leave empty and hit enter\n?", old)
+                            data[ds_name]["properties"]["label"] = sel
+                            old = data[ds_name[0]]["properties"]["color"]
                             selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
-                            data[ds_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else color
+                            data[ds_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else old
                         for key in data.keys():
                             print(f"{key}:")
                             for k in data[key]["properties"].keys():
@@ -394,12 +404,12 @@ if __name__ == "__main__":
                     can_exit = False
                     while not can_exit:
                         print(f"{command_data[0]}:")
-                        label = data[command_data[0]]["properties"]["label"]
-                        from_input = input_catch(f"Enter data label for \"{ds_name}\" or preserve old {label} leave empty and hit enter\n?")
-                        data[data_name]["properties"]["label"] = label if from_input is None else from_input
-                        color = data[command_data[0]]["properties"]["color"]
+                        old = data[command_data[0]]["properties"]["label"]
+                        sel = input_catch(f"Enter data label for \"{ds_name}\" or to preserve old {old} leave empty and hit enter\n?", old)
+                        data[data_name]["properties"]["label"] = sel
+                        old = data[command_data[0]]["properties"]["color"]
                         selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
-                        data[data_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else color
+                        data[data_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else old
             else:
                 print("Use: \"config plot\" or \"config data\" or \"config <data-set>\"")
         elif command == "search":
@@ -425,6 +435,7 @@ if __name__ == "__main__":
                 plotter.legend()
 
                 fig = plotter.gcf()
+                fig.set_size_inches(h = int(plot_properties["height"])/2.54, w = int(plot_properties["width"])/2.54, forward = True)
                 plotter.show()
 
                 ans = input_catch("Are you ok with this plot? (y/n)?", "n")
