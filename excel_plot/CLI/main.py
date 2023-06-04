@@ -12,7 +12,7 @@ def print_help():
     print("\tq, quit, exit, leave - to exit")
     print("\tload - open file dialog window to select file to load data from")
     print("\tunload - delete loaded file from temporary memory")
-    print("\tselect <row-start> <row-end> <column-start> <column-end> or select csv <column> <rows> - select data within given range (column accepts excel column representation) / select data from <column> of <rows> in csv file\nWhen used command \"search\" were used and found accessible data, then cache will be used instead of directly reading data from loaded file")
+    print("\tselect <row-start> <row-end> <column-start> <column-end> or select <row-start> <row-end> <column> - select data within given range (column accepts excel column representation) from excel file / select data within given row range from <column> from csv file\nWhen used command \"search\" were used and found accessible data, then cache will be used instead of directly reading data from loaded file")
     print("\tdata or data <data-set> - print loaded datasets (only informations) / print contents of <data-set>")
     print("\tclear or clear <data-set> or clear plot - clear whole database / clear <data-set> entry / clear plot properties")
     print("\tconfig plot or config data or config <data-set> - configure plotter properties / configure each dataset plot properties / configure <data-set> plot properties")
@@ -58,7 +58,7 @@ def is_float(element) -> bool:
         return True
     except ValueError:
         return False
-    
+
 def search_for_data(file_handler, file_type: str) -> (dict | None):
     if file_type in supported_file_types['excel'] and file_handler is not None:
         pass
@@ -87,7 +87,7 @@ def search_for_data(file_handler, file_type: str) -> (dict | None):
                     stop = row_num
                 temp[f"{start}:{stop}:{num_to_excel_column(col)}"] = temp_data
                 temp_data = []
-        return temp
+        return temp if temp != {} else None
     else:
         return None
 
@@ -188,10 +188,10 @@ if __name__ == "__main__":
                 data_is_valid = False
                 temp_data = []
                 r0, r1, c0, c1 = None, None, None, None
-                if len(command_data) == 3 and command_data[0] == "csv" and command_data[1].isalpha() and command_data[2].isdigit() and current_file_type in supported_file_types['csv']:
+                if len(command_data) == 3 and command_data[0].isdigit() and command_data[1].isdigit() and command_data[2].isalpha() and current_file_type in supported_file_types['csv']:
                     if accessible_data is not None:
                         for key in accessible_data.keys():
-                            if f"{0}:{int(command_data[2]) - 1}:{command_data[1]}" == key:
+                            if f"{command_data[0]}:{command_data[1]}:{command_data[2]}" == key:
                                 temp_data = accessible_data[key]
                                 print(f"Cache used for selected range {key}")
                                 data_is_valid = True
@@ -199,14 +199,16 @@ if __name__ == "__main__":
                     if data_is_valid == False:
                         ncol = len(next(workbook))
                         csv_file.seek(0)
-                        col = excel_column_to_num(command_data[1])
+                        col = excel_column_to_num(command_data[2])
                         if col is None or col > ncol:
-                            print(f"{command_data[1]} is wrong column")
+                            print(f"{command_data[2]} is wrong column")
                             continue
                         try:
                             for row_num, row in enumerate(workbook):
-                                if row_num == int(command_data[2]):
+                                if row_num > int(command_data[1]):
                                     break
+                                if row_num < int(command_data[0]):
+                                    continue
                                 value = row[col]
                                 if is_float(value) or value.isdigit():
                                     temp_data.append(round(float(value), 4))
@@ -216,9 +218,9 @@ if __name__ == "__main__":
                             pass
                         else:
                             data_is_valid = True
-                    c0 = c1 = command_data[1]
-                    r0 = 0
-                    r1 = command_data[2]
+                    c0 = c1 = command_data[2]
+                    r0 = command_data[0]
+                    r1 = command_data[1]
                 elif len(command_data) == 4 and command_data[0].isdigit() and command_data[1].isdigit() and command_data[2].isalpha() and command_data[2].isalpha() and current_file_type in supported_file_types['excel']:
                     row_from, row_to, col_from, col_to = int(command_data[0]), int(command_data[1]), command_data[2], command_data[3]
                     temp = excel_column_to_num(col_from)
@@ -246,7 +248,7 @@ if __name__ == "__main__":
                     else:
                         print("Selected range is not valid...\nTry again")
                 else:
-                    print("Use: \"select <row-start> <row-end> <column-start> <column-end>\" or \"select csv <column> <rows>\"")
+                    print("Use: \"select <row-start> <row-end> <column-start> <column-end>\" or \"select <row-start> <row-end> <column>\"")
 
                 if data_is_valid:
                     datasets = [d for d in data.keys()]
@@ -403,7 +405,10 @@ if __name__ == "__main__":
         elif command == "search":
             temp = search_for_data(file_handler=workbook, file_type=current_file_type)
             if temp is None:
-                print(f"No valid data found in {current_filename} file..")
+                if current_file_type == "":
+                    print("No file loaded, use \"load\" command first.")
+                else:
+                    print(f"No valid data found in {current_filename} file..")
             else:
                 accessible_data = temp
                 print(f"Found accessible data ranges:")
