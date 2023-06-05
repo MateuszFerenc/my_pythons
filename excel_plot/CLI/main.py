@@ -116,6 +116,7 @@ def search_for_data(file_handler, file_type: str) -> (dict | None):
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.attributes('-topmost', True)
     root.withdraw()
 
     workbook = None
@@ -132,8 +133,8 @@ if __name__ == "__main__":
         "title_weight": "bold",
         "title_style": "normal",
         "grid": False,
-        "width": 10,
-        "height": 8
+        "width": 18,
+        "height": 10
     }
     plot_properties_ok = False
     current_file_type = ""
@@ -168,47 +169,53 @@ if __name__ == "__main__":
                     csv_file.close()
             exit()
         elif command == "load":
-            ans = ""
-            accessible_data = {}
-            if workbook is not None:
-                ans = input_catch(f"{current_sheet.title} is currently loaded, unload? (y/n)", "n")
-            if ans.lower() in ("y", "yes", "yep") or workbook is None:
-                path = askopenfilename(title="Choose excel file", filetypes=[(fs_names['excel'], " ".join(supported_file_types['excel'])), (fs_names['csv'], " ".join(supported_file_types['csv']))], parent=root)
-                try:
-                    if len(path) == 0:
-                        raise Exception("Empty path, no file selected.")
-                    current_file_type = "." + path_split(path)[1].rsplit(".", 1)[1]
-                    current_filename = path_split(path)[1].rsplit(".", 1)[0]
-                    if current_file_type in supported_file_types["csv"]:
-                        csv_file = open(path, 'r')
-                        workbook = csv_reader(csv_file)
-                    elif current_file_type in supported_file_types["excel"]:
-                        workbook = load_workbook(path)
-                        current_sheet = workbook.active
+            if len(command_data) == 0:
+                ans = ""
+                accessible_data = {}
+                if workbook is not None:
+                    ans = input_catch(f"{current_sheet.title} is currently loaded, unload? (y/n)", "n")
+                if ans.lower() in ("y", "yes", "yep") or workbook is None:
+                    path = askopenfilename(title="Choose excel file", filetypes=[(fs_names['excel'], " ".join(supported_file_types['excel'])), (fs_names['csv'], " ".join(supported_file_types['csv']))], parent=root)
+                    try:
+                        if len(path) == 0:
+                            raise Exception("Empty path, no file selected.")
+                        current_file_type = "." + path_split(path)[1].rsplit(".", 1)[1]
+                        current_filename = path_split(path)[1].rsplit(".", 1)[0]
+                        if current_file_type in supported_file_types["csv"]:
+                            csv_file = open(path, 'r')
+                            workbook = csv_reader(csv_file)
+                        elif current_file_type in supported_file_types["excel"]:
+                            workbook = load_workbook(path)
+                            current_sheet = workbook.active
+                        else:
+                            raise Exception(f"{current_file_type} is unsupported..")
+                    except FileNotFoundError:
+                        print(f"{path} file not found...")
+                    except Exception as e:
+                        print(e)
                     else:
-                        raise Exception(f"{current_file_type} is unsupported..")
-                except FileNotFoundError:
-                    print(f"{path} file not found...")
-                except Exception as e:
-                    print(e)
-                else:
-                    print(f"{current_filename}{current_file_type} loaded")
+                        print(f"{current_filename}{current_file_type} loaded")
+            else:
+                print_help()
         elif command == "unload":
-            if workbook is not None:
-                if current_file_type in supported_file_types['excel']:
-                    workbook.close()
-                    workbook = None
-                elif current_file_type in supported_file_types['csv']:
-                    workbook = None
-                    csv_file.close()
-            print(f"{current_filename}{current_file_type} unloaded")
-            current_sheet = None
-            current_file_type = ""
-            current_filename = ""
-            accessible_data = {}
+            if len(command_data) == 0:
+                if workbook is not None:
+                    if current_file_type in supported_file_types['excel']:
+                        workbook.close()
+                        workbook = None
+                    elif current_file_type in supported_file_types['csv']:
+                        workbook = None
+                        csv_file.close()
+                    print(f"{current_filename}{current_file_type} unloaded")
+                    current_sheet = None
+                    current_file_type = ""
+                    current_filename = ""
+                    accessible_data = {}
+            else:
+                print_help()
         elif command == "select":
             if workbook is None:
-                print("First load file using load command")
+                print("First load file using \"load\" command")
             else:
                 data_is_valid = False
                 temp_data = []
@@ -289,7 +296,7 @@ if __name__ == "__main__":
                     print(f"Data is valid.\nLoaded datasets: {datasets}")
                     can_exit = False
                     while not can_exit:
-                        data_name = input_catch("Enter name of new data set?")
+                        data_name = input_catch("Enter name of new data set\n?")
                         if data_name not in ('plot', 'data') and data_name is not None:
                             data[data_name] = {}
                             can_exit = True
@@ -317,6 +324,8 @@ if __name__ == "__main__":
                         print(f"Statistics - min: {round(min(temp), 4)}, max: {round(max(temp), 4)}, avg: {round(mean(temp), 4)}, stdev: {round(stdev(temp), 4)}")
                 else:
                     print(f"No data loaded.\nUse \"select\" command to select new data")
+            else:
+                print_help()
         elif command == "clear":
             if len(command_data) == 0:
                 data = {}
@@ -329,6 +338,7 @@ if __name__ == "__main__":
                     print(f"\"{command_data[0]}\" entries was removed from database")
                 elif command_data[0] == "plot":
                     plot_properties_ok = False
+                    print("Plot properties cleared.")
             else:
                 print("Use: \"clear\" or \"clear <data-set>\" or \"clear plot\"")
         elif command == "config":
@@ -445,18 +455,22 @@ if __name__ == "__main__":
             else:
                 print("Use: \"config plot\" or \"config data\" or \"config <data-set>\"")
         elif command == "search":
-            if len(accessible_data) == 0:
-                temp = search_for_data(file_handler=workbook, file_type=current_file_type)
-                if temp is None:
-                    if current_file_type == "":
-                        print("No file loaded, use \"load\" command first.")
+            if len(command_data) == 0:
+                if len(accessible_data) == 0:
+                    temp = search_for_data(file_handler=workbook, file_type=current_file_type)
+                    if temp is None:
+                        if current_file_type == "":
+                            print("No file loaded, use \"load\" command first.")
+                        else:
+                            print(f"No valid data found in {current_filename} file..")
+                        continue
                     else:
-                        print(f"No valid data found in {current_filename} file..")
-                else:
-                    accessible_data = temp
-            print(f"Found accessible data:")
-            for r in accessible_data.keys():
-                print(f"{r} of size {int(r.split(':')[1]) - int(r.split(':')[0]) + 1} elements.")
+                        accessible_data = temp
+                print(f"Found accessible data:")
+                for r in accessible_data.keys():
+                    print(f"{r} of size {int(r.split(':')[1]) - int(r.split(':')[0]) + 1} elements.")
+            else:
+                print_help()
         elif command == "generate":
             if plot_properties_ok and len(data):
                 for data_set in data.keys():
@@ -479,3 +493,5 @@ if __name__ == "__main__":
                 del fig
             else:
                 print("Use \"config plot\" command to configure plotter properties..")
+        else:
+            print_help()
