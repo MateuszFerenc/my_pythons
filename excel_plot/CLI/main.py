@@ -173,7 +173,7 @@ if __name__ == "__main__":
                 ans = ""
                 accessible_data = {}
                 if workbook is not None:
-                    ans = input_catch(f"{current_sheet.title} is currently loaded, unload? (y/n)", "n")
+                    ans = input_catch(f"{current_filename} is currently loaded, unload? (y/n)", "n")
                 if ans.lower() in ("y", "yes", "yep") or workbook is None:
                     path = askopenfilename(title="Choose excel file", filetypes=[(fs_names['excel'], " ".join(supported_file_types['excel'])), (fs_names['csv'], " ".join(supported_file_types['csv']))], parent=root)
                     try:
@@ -241,7 +241,7 @@ if __name__ == "__main__":
                                     break
                                 if row_num < int(command_data[0]):
                                     continue
-                                value = row[col]
+                                value = row[col - 1]
                                 if value is not None and is_float(value):
                                     temp_data.append(round(float(value), 4))
                                 else:
@@ -293,7 +293,9 @@ if __name__ == "__main__":
 
                 if data_is_valid:
                     datasets = [d for d in data.keys()]
-                    print(f"Data is valid.\nLoaded datasets: {datasets}")
+                    print(f"Data is valid.")
+                    if len(datasets):
+                        print(f"Loaded datasets: {', '.join(datasets)}")
                     can_exit = False
                     while not can_exit:
                         data_name = input_catch("Enter name of new data set\n?")
@@ -339,8 +341,11 @@ if __name__ == "__main__":
                 elif command_data[0] == "plot":
                     plot_properties_ok = False
                     print("Plot properties cleared.")
+                elif command_data[0] == "data":
+                    data = {}
+                    print("Database cleared.")
             else:
-                print("Use: \"clear\" or \"clear <data-set>\" or \"clear plot\"")
+                print("Use: \"clear\" or \"clear <data-set>\" or \"clear plot\" or \"clear data\"")
         elif command == "config":
             if len(command_data) == 1:
                 if command_data[0] == "plot":
@@ -420,7 +425,6 @@ if __name__ == "__main__":
                         if ans.lower() in ("y", "yes", "yep"):
                             can_exit = True
                             plot_properties_ok = True
-                            print("OK!")
                 elif len(data) == 0:
                     print("First you need to add dataset, using \"select\" command")
                 elif command_data[0] == "data":
@@ -428,12 +432,15 @@ if __name__ == "__main__":
                     while not can_exit:
                         for ds_name in data.keys():
                             print(f"{ds_name}:")
-                            old = data[ds_name[0]]["properties"]["label"]
+                            old = data[ds_name]["properties"]["label"]
                             sel = input_catch(f"Enter data label for \"{ds_name}\" or to preserve old {old} leave empty and hit enter\n?", old)
                             data[ds_name]["properties"]["label"] = sel
-                            old = data[ds_name[0]]["properties"]["color"]
+                            
+                            old = data[ds_name]["properties"]["color"]
                             selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
                             data[ds_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else old
+                            
+                        print()
                         for key in data.keys():
                             print(f"{key}:")
                             for k in data[key]["properties"].keys():
@@ -441,7 +448,6 @@ if __name__ == "__main__":
                         ans = input_catch("Are you ok with these values? (y/n)?", "n")
                         if ans.lower() in ("y", "yes", "yep"):
                             can_exit = True
-                            print("OK!")
                 elif command_data[0] in data.keys():
                     can_exit = False
                     while not can_exit:
@@ -449,9 +455,17 @@ if __name__ == "__main__":
                         old = data[command_data[0]]["properties"]["label"]
                         sel = input_catch(f"Enter data label for \"{ds_name}\" or to preserve old {old} leave empty and hit enter\n?", old)
                         data[data_name]["properties"]["label"] = sel
+                        
                         old = data[command_data[0]]["properties"]["color"]
                         selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
                         data[data_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else old
+                        
+                        print()
+                        for k in data[command_data[0]]["properties"].keys():
+                            print(f"\t{k}: {data[key]['properties'][k]}")
+                        ans = input_catch("Are you ok with these values? (y/n)?", "n")
+                        if ans.lower() in ("y", "yes", "yep"):
+                            can_exit = True
             else:
                 print("Use: \"config plot\" or \"config data\" or \"config <data-set>\"")
         elif command == "search":
@@ -478,7 +492,7 @@ if __name__ == "__main__":
                 plotter.xlabel(xlabel=plot_properties["xlabel"], weight=plot_properties["label_weight"], style=plot_properties["label_style"])
                 plotter.ylabel(ylabel=plot_properties["ylabel"], weight=plot_properties["label_weight"], style=plot_properties["label_style"])
                 plotter.title(label=plot_properties["title"], weight=plot_properties["title_weight"], style=plot_properties["title_style"])
-                plotter.grid(visible=plot_properties["grid"])
+                plotter.grid(visible=plot_properties["grid"], linestyle=':', linewidth=0.5)
                 plotter.legend()
 
                 fig = plotter.gcf()
