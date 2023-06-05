@@ -61,7 +61,29 @@ def is_float(element) -> bool:
 
 def search_for_data(file_handler, file_type: str) -> (dict | None):
     if file_type in supported_file_types['excel'] and file_handler is not None:
-        pass
+        max_row, max_col = current_sheet.max_row, current_sheet.max_column
+        temp = {}
+        for col in range(1, max_col + 1):
+            start, stop = None, None
+            temp_data = []
+            for row in range(1, max_row + 1):
+                if row % 100 == 0:
+                    print(end='\x1b[2K')
+                    print("Please wait" + "."*((row//100)%10), end="\r")
+                value = current_sheet.cell(row=row, column=col).value
+                if value is not None and is_float(value):
+                    if start is None:
+                        start = row
+                    temp_data.append(round(float(value), 4))
+                else:
+                    if start is not None:
+                        stop = row - 1
+                if start is not None and stop is not None:
+                    temp[f"{start}:{stop}:{num_to_excel_column(col - 1)}:{num_to_excel_column(col - 1)}"] = temp_data
+                    temp_data = []
+                    start, stop = None, None
+        print(end='\x1b[2K')
+        return temp if temp != {} else None
     elif file_type in supported_file_types['csv'] and file_handler is not None:
         ncol = len(next(workbook))
         csv_file.seek(0)
@@ -70,23 +92,24 @@ def search_for_data(file_handler, file_type: str) -> (dict | None):
             start, stop = None, None
             temp_data = []
             for row_num, row in enumerate(workbook):
-                if row[col]:
-                    value = row[col]
-                    if is_float(value) or value.isdigit():
-                        if start is None:
-                            start = row_num
-                        temp_data.append(round(float(value), 4))
-                    else:
-                        if start is not None:
-                            stop = row_num
+                if row_num % 100 == 0:
+                    print(end='\x1b[2K')
+                    print("Please wait" + "."*((row_num//100)%10), end="\r")
+                value = row[col]
+                if value is not None and is_float(value):
+                    if start is None:
+                        start = row_num
+                    temp_data.append(round(float(value), 4))
                 else:
                     if start is not None:
-                        stop = row_num
-            if start is not None:
-                if stop is None:
-                    stop = row_num
-                temp[f"{start}:{stop}:{num_to_excel_column(col)}"] = temp_data
-                temp_data = []
+                        stop = row_num - 1
+                if start is not None and stop is not None:
+                    temp[f"{start}:{stop}:{num_to_excel_column(col)}"] = temp_data
+                    temp_data = []
+                    start, stop = None, None
+            if start is not None and stop is None:
+                temp[f"{start}:{row_num}:{num_to_excel_column(col)}"] = temp_data
+        print(end='\x1b[2K')
         return temp if temp != {} else None
     else:
         return None
@@ -140,7 +163,7 @@ if __name__ == "__main__":
         if command in ("q", "quit", "exit", "leave"):
             if workbook is not None:
                 if current_file_type in supported_file_types['excel']:
-                    workbook.remove()
+                    workbook.close()
                 elif current_file_type in supported_file_types['csv']:
                     csv_file.close()
             exit()
@@ -173,12 +196,12 @@ if __name__ == "__main__":
         elif command == "unload":
             if workbook is not None:
                 if current_file_type in supported_file_types['excel']:
-                    workbook.remove()
-                    print(f"{current_sheet.title} unloaded")
+                    workbook.close()
                     workbook = None
                 elif current_file_type in supported_file_types['csv']:
                     workbook = None
                     csv_file.close()
+            print(f"{current_filename}{current_file_type} unloaded")
             current_sheet = None
             current_file_type = ""
             current_filename = ""
@@ -212,7 +235,7 @@ if __name__ == "__main__":
                                 if row_num < int(command_data[0]):
                                     continue
                                 value = row[col]
-                                if is_float(value) or value.isdigit():
+                                if value is not None and is_float(value):
                                     temp_data.append(round(float(value), 4))
                                 else:
                                     raise Exception(f"value: {value} in row: {row_num}, col: {col} is not int or float type\nType: {type(value)}\nRemoving selected data...")
@@ -224,31 +247,40 @@ if __name__ == "__main__":
                     r0 = command_data[0]
                     r1 = command_data[1]
                 elif len(command_data) == 4 and command_data[0].isdigit() and command_data[1].isdigit() and command_data[2].isalpha() and command_data[2].isalpha() and current_file_type in supported_file_types['excel']:
-                    row_from, row_to, col_from, col_to = int(command_data[0]), int(command_data[1]), command_data[2], command_data[3]
-                    temp = excel_column_to_num(col_from)
-                    col_from = temp
-                    if temp is None:
-                        ok = False
-                    temp = excel_column_to_num(col_to)
-                    col_to = temp
-                    if temp is None:
-                        ok =  False
-                    if ok and (row_from <= row_to and col_from <= col_to):
-                        try:
-                            for row in range(row_from, row_to + 1):
-                                for col in range(col_from, col_to + 1):
-                                    value = current_sheet.cell(row=row, column=col).value
-                                    if type(value) is int or is_float(value):
-                                        temp_data.append(round(value, 4))
-                                    else:
-                                        raise Exception(f"value: {value} in row: {row}, col: {col} is not int or float type\nType: {type(value)}\nRemoving selected data...")
-                        except Exception as e:
-                            print(e)
+                    if accessible_data is not None:
+                        for key in accessible_data.keys():
+                            if f"{command_data[0]}:{command_data[1]}:{command_data[2]}:{command_data[3]}" == key:
+                                temp_data = accessible_data[key]
+                                print(f"Cache used for selected range {key}")
+                                data_is_valid = True
+                                break
+                    if data_is_valid == False:
+                        row_from, row_to, col_from, col_to = int(command_data[0]), int(command_data[1]), command_data[2], command_data[3]
+                        ok = True
+                        temp = excel_column_to_num(col_from)
+                        col_from = temp
+                        if temp is None:
+                            ok = False
+                        temp = excel_column_to_num(col_to)
+                        col_to = temp
+                        if temp is None:
+                            ok =  False
+                        if ok and (row_from <= row_to and col_from <= col_to):
+                            try:
+                                for row in range(row_from, row_to + 1):
+                                    for col in range(col_from, col_to + 1):
+                                        value = current_sheet.cell(row=row, column=col).value
+                                        if is_float(value):
+                                            temp_data.append(round(value, 4))
+                                        else:
+                                            raise Exception(f"value: {value} in row: {row}, col: {col} is not int or float type\nType: {type(value)}\nRemoving selected data...")
+                            except Exception as e:
+                                print(e)
+                            else:
+                                data_is_valid = True
                         else:
-                            r0, r1, c0, c1 = row_from, row_to, command_data[2], command_data[3]
-                            data_is_valid = True
-                    else:
-                        print("Selected range is not valid...\nTry again")
+                            print("Selected range is not valid...\nTry again")
+                    r0, r1, c0, c1 = command_data[0], command_data[1], command_data[2], command_data[3]
                 else:
                     print("Use: \"select <row-start> <row-end> <column-start> <column-end>\" or \"select <row-start> <row-end> <column>\"")
 
@@ -284,7 +316,7 @@ if __name__ == "__main__":
                         temp = data[data_set]['data']
                         print(f"Statistics - min: {round(min(temp), 4)}, max: {round(max(temp), 4)}, avg: {round(mean(temp), 4)}, stdev: {round(stdev(temp), 4)}")
                 else:
-                    print(f"No data loaded.\nUse \"load\" and \"select\" commands to load new data")
+                    print(f"No data loaded.\nUse \"select\" command to select new data")
         elif command == "clear":
             if len(command_data) == 0:
                 data = {}
@@ -380,7 +412,7 @@ if __name__ == "__main__":
                             plot_properties_ok = True
                             print("OK!")
                 elif len(data) == 0:
-                    print("First you need to add dataset, using select command")
+                    print("First you need to add dataset, using \"select\" command")
                 elif command_data[0] == "data":
                     can_exit = False
                     while not can_exit:
@@ -413,17 +445,18 @@ if __name__ == "__main__":
             else:
                 print("Use: \"config plot\" or \"config data\" or \"config <data-set>\"")
         elif command == "search":
-            temp = search_for_data(file_handler=workbook, file_type=current_file_type)
-            if temp is None:
-                if current_file_type == "":
-                    print("No file loaded, use \"load\" command first.")
+            if len(accessible_data) == 0:
+                temp = search_for_data(file_handler=workbook, file_type=current_file_type)
+                if temp is None:
+                    if current_file_type == "":
+                        print("No file loaded, use \"load\" command first.")
+                    else:
+                        print(f"No valid data found in {current_filename} file..")
                 else:
-                    print(f"No valid data found in {current_filename} file..")
-            else:
-                accessible_data = temp
-                print(f"Found accessible data ranges:")
-                for r in accessible_data.keys():
-                    print(r)
+                    accessible_data = temp
+            print(f"Found accessible data:")
+            for r in accessible_data.keys():
+                print(f"{r} of size {int(r.split(':')[1]) - int(r.split(':')[0]) + 1} elements.")
         elif command == "generate":
             if plot_properties_ok and len(data):
                 for data_set in data.keys():
