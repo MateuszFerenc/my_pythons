@@ -3,6 +3,14 @@ from re import match
 
 
 class LangSupport:
+    
+    lang_file_template = \
+        ".. <Enter lang file description>\n"\
+        ".. file format - parameter#text\n"\
+        ".. '#' ends parameter placeholder\n"\
+        ".. '..' starts single line comment, not interpreted\n"\
+        ".. '{}' use for string format"
+        
     def __init__(self, directory: str = None, ignore_file_error: bool = False, ignore_key_error: bool = False, ignore_dict_error: str = False) -> None:
         assert directory is not None
         assert type(ignore_file_error) is bool
@@ -17,9 +25,22 @@ class LangSupport:
         self.ignore_file_error = ignore_file_error
         self.ignore_key_error = ignore_key_error
         self.ignore_dict_error = ignore_dict_error
-
+        
         self.get_languages()  # initialise available languages
         self.set_language(self.language)
+        
+    def create_lang_file(self, lang: str) -> (True | False):
+        if match('^[A-Z]{2}_[a-z]{2}$', str(lang)) is None:
+            return False
+        
+        try:
+            with open(path.join(self.directory, lang), "x") as new_file:
+                for line in LangSupport.lang_file_template.split('\n'):
+                    new_file.write(line + '\n')
+        except FileExistsError:
+            return False
+        else:
+            return True
 
     def get_languages(self) -> list:
         files = None
