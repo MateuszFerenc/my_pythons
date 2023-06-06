@@ -4,7 +4,7 @@ from datalogger import DataLogger
 
 
 class LangSupport:
-    def __init__(self, directory: str = None, ignore_file_error: bool = False, ignore_key_error: bool = False, ignore_dict_error: str = False):
+    def __init__(self, directory: str = None, ignore_file_error: bool = False, ignore_key_error: bool = False, ignore_dict_error: str = False) -> None:
         assert directory is not None
         assert type(ignore_file_error) is bool
         assert type(ignore_key_error) is bool
@@ -23,7 +23,7 @@ class LangSupport:
         self.get_languages()  # initialise available languages
         self.set_language(self.language)
 
-    def get_languages(self):
+    def get_languages(self) -> list:
         files = None
         try:
             files = listdir(self.directory)
@@ -36,7 +36,9 @@ class LangSupport:
                 self.lang_list.append(Lang)
         return self.lang_list
 
-    def set_language(self, lang):
+    def set_language(self, lang: str, dump: bool = False) -> ( None | dict ):
+        assert type(lang) is str
+        assert type(dump) is bool
         if len(self.lang_list):
             if lang not in self.lang_list:
                 self.dl.log(f"{lang} language not found.", log_type=1)
@@ -54,13 +56,15 @@ class LangSupport:
                         # and remove escaping
                         self.dictionary[split_line[0]] = split_line[1]  # enter values by keys into dictionary
                 lang_data.close()
+                if dump:
+                    return self.dictionary
         except FileNotFoundError:
             self.dl.log(f"File {file} not found!", log_type=2)
             if not self.ignore_file_error:
                 exit(3)
             self.dl.log(f"Exit disabled by ignore_file_error flag.")
 
-    def get_text(self, dict_key, *args):
+    def get_text(self, dict_key: str, *args) -> ( None | str ):
         text = None
         try:
             text = str(self.dictionary[dict_key])  # get text value based on key
@@ -81,9 +85,22 @@ class LangSupport:
         except IndexError:
             if text.find("{}"):
                 self.dl.log(f"Key: {dict_key} can be formatted, but no args were given.", log_type=1)
-        return text
+        return text.replace(r'\n', '\n').replace(r'\t', '\t')
+    
+    @staticmethod
+    def ext_text(dict: dict, dict_key: str, *args) -> ( None | str ):
+        text = None
+        try:
+            text = str(dict[dict_key])  # get text value based on key
+        except KeyError:
+            return dict_key
+        try:
+            text = text.format(*args)   # try to format text with arguments, if any specified
+        except IndexError:
+            pass
+        return text.replace(r'\n', '\n').replace(r'\t', '\t')
 
 
 if __name__ == "__main__":
-    print("Fatal error! This file could not be ran standalone")
+    print("Fatal error! This file should not be run as a standalone.")
     exit(3)
