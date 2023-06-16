@@ -12,11 +12,12 @@ def print_help():
     print("\tq, quit, exit, leave - to exit")
     print("\tload - open file dialog window to select file to load data from")
     print("\tunload - delete loaded file from temporary memory")
-    print("\tselect <row-start> <row-end> <column-start> <column-end> or select <row-start> <row-end> <column> - select data within given range (column accepts excel column representation) from excel file / select data within given row range from <column> from csv file\nWhen used command \"search\" were used and found accessible data, then cache will be used instead of directly reading data from loaded file")
+    print("\tselect <row-start> <row-end> <column-start> <column-end> or select <row-start> <row-end> <column> - select data within given range (column accepts excel column representation) from excel file / select data within given row range from <column> from csv file\n\tWhen used command \"search\" were used and found accessible data, then cache will be used instead of directly reading data from loaded file")
     print("\tdata or data <data-set> - print loaded datasets (only informations) / print contents of <data-set>")
-    print("\tclear or clear <data-set> or clear plot - clear whole database / clear <data-set> entry / clear plot properties")
+    print("\tclear or clear <data-set> or clear plot or clear data - clear whole database / clear <data-set> entry / clear plot properties / clear all datasets")
     print("\tconfig plot or config data or config <data-set> - configure plotter properties / configure each dataset plot properties / configure <data-set> plot properties")
     print("\tsearch - search for accessible data within loaded file")
+    print("\tpath - print path of currently selected file")
     print("\tgenerate - generate plot from given data")
 
 def excel_column_to_num(col: str) -> (int | None):
@@ -82,7 +83,7 @@ def search_for_data(file_handler, file_type: str) -> (dict | None):
                     temp[f"{start}:{stop}:{num_to_excel_column(col - 1)}:{num_to_excel_column(col - 1)}"] = temp_data
                     temp_data = []
                     start, stop = None, None
-        print(end='\x1b[2K')
+        print(" " * 30, end="\r")
         return temp if temp != {} else None
     elif file_type in supported_file_types['csv'] and file_handler is not None:
         ncol = len(next(workbook))
@@ -109,7 +110,8 @@ def search_for_data(file_handler, file_type: str) -> (dict | None):
                     start, stop = None, None
             if start is not None and stop is None:
                 temp[f"{start}:{row_num}:{num_to_excel_column(col)}"] = temp_data
-        print(end='\x1b[2K')
+        csv_file.seek(0)
+        print(" " * 30, end="\r")
         return temp if temp != {} else None
     else:
         return None
@@ -139,6 +141,7 @@ if __name__ == "__main__":
     plot_properties_ok = False
     current_file_type = ""
     current_filename = ""
+    current_path = ""
     supported_file_types = {
         "excel": (".xlsx", ".xlsm", ".xltx", ".xltm"),
         "csv": ".csv"
@@ -162,6 +165,9 @@ if __name__ == "__main__":
             continue
         command, command_data = command.split()[0].lower(), command.split()[1:]
         if command in ("q", "quit", "exit", "leave"):
+            ans = input_catch("Do you want to quit (y/N)?", 'n')
+            if ans.lower() in ('n', 'no'):
+                continue
             if workbook is not None:
                 if current_file_type in supported_file_types['excel']:
                     workbook.close()
@@ -173,7 +179,7 @@ if __name__ == "__main__":
                 ans = ""
                 accessible_data = {}
                 if workbook is not None:
-                    ans = input_catch(f"{current_filename} is currently loaded, unload? (y/n)", "n")
+                    ans = input_catch(f"{current_filename} is currently loaded, unload? (y/N)", "n")
                 if ans.lower() in ("y", "yes", "yep") or workbook is None:
                     path = askopenfilename(title="Choose excel file", filetypes=[(fs_names['excel'], " ".join(supported_file_types['excel'])), (fs_names['csv'], " ".join(supported_file_types['csv']))], parent=root)
                     try:
@@ -181,6 +187,7 @@ if __name__ == "__main__":
                             raise Exception("Empty path, no file selected.")
                         current_file_type = "." + path_split(path)[1].rsplit(".", 1)[1]
                         current_filename = path_split(path)[1].rsplit(".", 1)[0]
+                        current_path = path_split(path)[0]
                         if current_file_type in supported_file_types["csv"]:
                             csv_file = open(path, 'r')
                             workbook = csv_reader(csv_file)
@@ -188,7 +195,7 @@ if __name__ == "__main__":
                             workbook = load_workbook(path)
                             current_sheet = workbook.active
                         else:
-                            raise Exception(f"{current_file_type} is unsupported..")
+                            raise Exception(f"\"{current_file_type}\" file type is not supported..")
                     except FileNotFoundError:
                         print(f"{path} file not found...")
                     except Exception as e:
@@ -210,12 +217,13 @@ if __name__ == "__main__":
                     current_sheet = None
                     current_file_type = ""
                     current_filename = ""
+                    current_path = ""
                     accessible_data = {}
             else:
                 print_help()
         elif command == "select":
             if workbook is None:
-                print("First load file using \"load\" command")
+                print("First load file using \"load\" command.")
             else:
                 data_is_valid = False
                 temp_data = []
@@ -246,10 +254,12 @@ if __name__ == "__main__":
                                     temp_data.append(round(float(value), 4))
                                 else:
                                     raise Exception(f"value: {value} in row: {row_num}, col: {col} is not int or float type\nType: {type(value)}\nRemoving selected data...")
-                        except FileExistsError:
-                            pass
+                        except Exception as e:
+                            print(e)
                         else:
                             data_is_valid = True
+                        finally:
+                            csv_file.seek(0)
                     c0 = c1 = command_data[2]
                     r0 = command_data[0]
                     r1 = command_data[1]
@@ -289,7 +299,7 @@ if __name__ == "__main__":
                             print("Selected range is not valid...\nTry again")
                     r0, r1, c0, c1 = command_data[0], command_data[1], command_data[2], command_data[3]
                 else:
-                    print("Use: \"select <row-start> <row-end> <column-start> <column-end>\" or \"select <row-start> <row-end> <column>\"")
+                    print("Use: \"select <row-start> <row-end> <column-start> <column-end>\" or \"select <row-start> <row-end> <column>\".")
 
                 if data_is_valid:
                     datasets = [d for d in data.keys()]
@@ -298,23 +308,31 @@ if __name__ == "__main__":
                         print(f"Loaded datasets: {', '.join(datasets)}")
                     can_exit = False
                     while not can_exit:
-                        data_name = input_catch("Enter name of new data set\n?")
-                        if data_name not in ('plot', 'data') and data_name is not None:
+                        data_name = input_catch("Enter name of new data set (or type \"q\" to abort)\n?")
+                        if data_name not in ('plot', 'data', 'q') and data_name is not None:
+                            if data_name in datasets:
+                                ans = input_catch(f"Selected name: \"{data_name}\" is currently in use, do you want to [o]verwrite it, or [c]hoose another (o/C)\n?", 'c')
+                                if ans.lower() == 'c':
+                                    continue
                             data[data_name] = {}
                             can_exit = True
                         else:
+                            if data_name == 'q':
+                                print("Abort.")
+                                break
                             print(f"{data_name} is protected name, use another..")
-                    data[data_name]["data"] = temp_data
-                    data[data_name]["info"] = {}
-                    data[data_name]["info"]["sheet_name"] = current_filename
-                    data[data_name]["info"]["row_from_to"] = f"{r0} : {r1}"
-                    data[data_name]["info"]["col_from_to"] = f"{c0} : {c1}"
-                    label = input_catch("Enter data label\n?")
-                    data[data_name]["properties"] = {}
-                    data[data_name]["properties"]["label"] = label
-                    print("Color pick window summoned..")
-                    color = askcolor(title="Choose plot color", parent=root)
-                    data[data_name]["properties"]["color"] = color[1] if color != (None, None) else "#000000"
+                    if can_exit:
+                        data[data_name]["data"] = temp_data
+                        data[data_name]["info"] = {}
+                        data[data_name]["info"]["sheet_name"] = current_filename
+                        data[data_name]["info"]["row_from_to"] = f"{r0} : {r1}"
+                        data[data_name]["info"]["col_from_to"] = f"{c0} : {c1}"
+                        label = input_catch("Enter data label\n?")
+                        data[data_name]["properties"] = {}
+                        data[data_name]["properties"]["label"] = label
+                        print("Color pick window summoned..")
+                        color = askcolor(title="Choose color", parent=root)
+                        data[data_name]["properties"]["color"] = color[1] if color != (None, None) else "#000000"
         elif command == "data":
             if len(command_data) == 0:
                 if len(data):
@@ -325,7 +343,7 @@ if __name__ == "__main__":
                         temp = data[data_set]['data']
                         print(f"Statistics - min: {round(min(temp), 4)}, max: {round(max(temp), 4)}, avg: {round(mean(temp), 4)}, stdev: {round(stdev(temp), 4)}")
                 else:
-                    print(f"No data loaded.\nUse \"select\" command to select new data")
+                    print(f"No data loaded.\nUse \"select\" command to select new data.")
             else:
                 print_help()
         elif command == "clear":
@@ -337,7 +355,7 @@ if __name__ == "__main__":
             elif len(command_data) == 1:
                 if command_data[0] in data.keys():
                     del data[command_data[0]]
-                    print(f"\"{command_data[0]}\" entries was removed from database")
+                    print(f"\"{command_data[0]}\" entries was removed from database.")
                 elif command_data[0] == "plot":
                     plot_properties_ok = False
                     print("Plot properties cleared.")
@@ -345,7 +363,7 @@ if __name__ == "__main__":
                     data = {}
                     print("Database cleared.")
             else:
-                print("Use: \"clear\" or \"clear <data-set>\" or \"clear plot\" or \"clear data\"")
+                print("Use: \"clear\" or \"clear <data-set>\" or \"clear plot\" or \"clear data\".")
         elif command == "config":
             if len(command_data) == 1:
                 if command_data[0] == "plot":
@@ -366,7 +384,7 @@ if __name__ == "__main__":
                         font_weights = ('ultralight', 'light', 'normal', 'regular', 'book', 'medium', 'roman', 'semibold', 'demibold', 'demi', 'bold', 'heavy', 'extra bold', 'black')
 
                         old = plot_properties["label_weight"]
-                        sel = input_catch(f"Enter labels font weight (valid: {font_weights}), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        sel = input_catch(f"Enter labels font weight (valid: {', '.join(font_weights)}), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
                         if sel in font_weights:
                             plot_properties["label_weight"] = sel
                         else:
@@ -376,7 +394,7 @@ if __name__ == "__main__":
                         font_styles = ('normal', 'italic', 'oblique')
 
                         old = plot_properties["label_style"]
-                        sel = input_catch(f"Enter labels font style (valid: {font_styles}), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        sel = input_catch(f"Enter labels font style (valid: {', '.join(font_styles)}), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
                         if sel in font_styles:
                             plot_properties["label_style"] = sel
                         else:
@@ -388,7 +406,7 @@ if __name__ == "__main__":
                         plot_properties["title"] = sel
 
                         old = plot_properties["title_weight"]
-                        sel = input_catch(f"Enter title font weight (valid: {font_weights}), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        sel = input_catch(f"Enter title font weight (valid: {', '.join(font_weights)}), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
                         if sel in font_weights:
                             plot_properties["title_weight"] = sel
                         else:
@@ -396,7 +414,7 @@ if __name__ == "__main__":
                             plot_properties["title_weight"] = "bold"
 
                         old = plot_properties["title_style"]
-                        sel = input_catch(f"Enter labels font style (valid: {font_styles}), or to  preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        sel = input_catch(f"Enter labels font style (valid: {', '.join(font_styles)}), or to  preserve old \"{old}\" leave empty and hit enter\n?", old)
                         if sel in font_styles:
                             plot_properties["title_style"] = sel
                         else:
@@ -404,11 +422,11 @@ if __name__ == "__main__":
                             plot_properties["title_style"] = "normal"
 
                         old = plot_properties["grid"]
-                        sel = input_catch(f"Enable grid? (valid: True, False), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
-                        if sel in ("True", "False"):
-                            plot_properties["grid"] = sel
+                        sel = input_catch(f"Enable grid? (valid: y, yes, n, no), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
+                        if sel in ('y', 'yes', 'n', 'no'):
+                            plot_properties["grid"] = True if sel in ('y', 'yes') else False
                         else:
-                            print(f"option: {sel} is not valid..\n\"False\" used as default")
+                            print(f"option: {sel} is not valid..\n\"no\" used as default")
 
                         old = plot_properties['width']
                         sel = input_catch(f"Enter plot width (in cm), or to preserve old \"{old}\" leave empty and hit enter\n?", old)
@@ -421,12 +439,12 @@ if __name__ == "__main__":
                         print()
                         for key in plot_properties.keys():
                             print(f"{key}: {plot_properties[key]}")
-                        ans = input_catch("Are you ok with these values? (y/n)?", "n")
+                        ans = input_catch("Are you ok with these values? (y/N)?", "n")
                         if ans.lower() in ("y", "yes", "yep"):
                             can_exit = True
                             plot_properties_ok = True
                 elif len(data) == 0:
-                    print("First you need to add dataset, using \"select\" command")
+                    print("First you need to add dataset, using \"select\" command.")
                 elif command_data[0] == "data":
                     can_exit = False
                     while not can_exit:
@@ -437,7 +455,8 @@ if __name__ == "__main__":
                             data[ds_name]["properties"]["label"] = sel
                             
                             old = data[ds_name]["properties"]["color"]
-                            selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
+                            print("Color pick window summoned..")
+                            selected_color = askcolor(title=f"Choose color, currently: {color}", parent=root)
                             data[ds_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else old
                             
                         print()
@@ -445,7 +464,7 @@ if __name__ == "__main__":
                             print(f"{key}:")
                             for k in data[key]["properties"].keys():
                                 print(f"\t{k}: {data[key]['properties'][k]}")
-                        ans = input_catch("Are you ok with these values? (y/n)?", "n")
+                        ans = input_catch("Are you ok with these values? (y/N)?", "n")
                         if ans.lower() in ("y", "yes", "yep"):
                             can_exit = True
                 elif command_data[0] in data.keys():
@@ -453,21 +472,22 @@ if __name__ == "__main__":
                     while not can_exit:
                         print(f"{command_data[0]}:")
                         old = data[command_data[0]]["properties"]["label"]
-                        sel = input_catch(f"Enter data label for \"{ds_name}\" or to preserve old {old} leave empty and hit enter\n?", old)
+                        sel = input_catch(f"Enter data label for \"{command_data[0]}\" or to preserve old {old} leave empty and hit enter\n?", old)
                         data[data_name]["properties"]["label"] = sel
                         
                         old = data[command_data[0]]["properties"]["color"]
-                        selected_color = askcolor(title=f"Choose plot color, currently: {color}", parent=root)
+                        print("Color pick window summoned..")
+                        selected_color = askcolor(title=f"Choose color, currently: {color}", parent=root)
                         data[data_name]["properties"]["color"] = selected_color[1] if selected_color != (None, None) else old
                         
                         print()
                         for k in data[command_data[0]]["properties"].keys():
                             print(f"\t{k}: {data[key]['properties'][k]}")
-                        ans = input_catch("Are you ok with these values? (y/n)?", "n")
+                        ans = input_catch("Are you ok with these values? (y/N)?", "n")
                         if ans.lower() in ("y", "yes", "yep"):
                             can_exit = True
             else:
-                print("Use: \"config plot\" or \"config data\" or \"config <data-set>\"")
+                print("Use: \"config plot\" or \"config data\" or \"config <data-set>\".")
         elif command == "search":
             if len(command_data) == 0:
                 if len(accessible_data) == 0:
@@ -485,6 +505,14 @@ if __name__ == "__main__":
                     print(f"{r} of size {int(r.split(':')[1]) - int(r.split(':')[0]) + 1} elements.")
             else:
                 print_help()
+        elif command == "path":
+            if len(command_data) == 0:
+                if len(current_path):
+                    print(current_path)
+                else:
+                    print("No file loaded. Use: \"load\" command to load file.")
+            else:
+                print("Use: \"path\"")
         elif command == "generate":
             if plot_properties_ok and len(data):
                 for data_set in data.keys():
@@ -499,7 +527,7 @@ if __name__ == "__main__":
                 fig.set_size_inches(h = int(plot_properties["height"])/2.54, w = int(plot_properties["width"])/2.54, forward = True)
                 plotter.show()
 
-                ans = input_catch("Are you ok with this plot? (y/n)?", "n")
+                ans = input_catch("Are you ok with this plot? (y/N)?", "n")
                 if ans.lower() in ("y", "yes", "yep"):
                     fig.savefig("output.png", dpi=int(plot_properties["dpi"]))
                 plotter.clf()
