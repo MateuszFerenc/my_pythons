@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lang_support"
+version = "1.2"
+authors = [
+  { name="Mateusz Ferenc", email="ferenc.mateusz.priv@gmail.com" },
+]
+maintainers = [
+  { name="Mateusz Ferenc", email="ferenc.mateusz.priv@gmail.com" },
+]
+description = "Package that provides an easy API for adding different, easily changeable languages."
+keywords = [ "multilangual", "language change", "language", "languages" ]
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "data_logger>1.2",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/MateuszFerenc/my_pythons/tree/main/lang_support"
+"Bug Tracker" = "https://github.com/mateuszferenc/my_pythons/issues"
