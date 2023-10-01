@@ -1,7 +1,7 @@
 from os import mkdir, path
 from datetime import datetime
 
-class DataLogger:
+class SimpleDataLogger:
     instances = []
 
     def __init__(self, log_name: str = None, directory: str = None, debug: bool = False) -> None:

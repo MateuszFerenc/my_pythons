@@ -3,7 +3,7 @@ from re import match
 from datalogger import DataLogger
 
 
-class LangSupport:
+class LangSupportDL:
     def __init__(self, directory: str = None, ignore_file_error: bool = False, ignore_key_error: bool = False, ignore_dict_error: str = False) -> None:
         assert directory is not None
         assert type(ignore_file_error) is bool

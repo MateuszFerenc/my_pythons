@@ -1,7 +1,7 @@
-from datalogger import DataLogger
+from datalogger import SimpleDataLogger
 
 if __name__ == "__main__":
-    dl = DataLogger("example_log", "any_choosen_dir")   # initialise DataLogger instance log file name "example_log" in directory "any_chosen_dir"
+    dl = SimpleDataLogger("example_log", "any_choosen_dir")   # initialise DataLogger instance log file name "example_log" in directory "any_chosen_dir"
     
     dl.log("example without any arguments")                         # log info
     dl.log("example with arument log_type = 0", log_type=0)         # log info
@@ -10,5 +10,5 @@ if __name__ == "__main__":
     dl.log("example with arument log_type = 3", log_type=3)         # log fatal error
     
     
-    for inst in DataLogger.instances:
+    for inst in SimpleDataLogger.instances:
            inst.end()

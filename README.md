@@ -1,5 +1,8 @@
 ### A collection of my Python scripts that I think might be useful to someone.
 
+***simpldlogger*** and ***lang_support*** are created as packages, and available via pip cli.  
+`pip install simldlogger lang_support`
+
 ## create virtual environment, met requirements and run (UNIX)
 ```bash
 # You can clone whole repository
