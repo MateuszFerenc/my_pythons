@@ -1,4 +1,4 @@
-from datalogger import SimpleDataLogger
+from simpldlogger.datalogger import SimpleDataLogger
 
 if __name__ == "__main__":
     dl = SimpleDataLogger("example_log", "any_choosen_dir")   # initialise DataLogger instance log file name "example_log" in directory "any_chosen_dir"

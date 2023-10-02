@@ -6,6 +6,7 @@ import argparse
 
 if __name__ == "__main__":
     no_token = True
+    token_c = {}
     try:
         with open("data_token.json", "r") as data_token:
             try:

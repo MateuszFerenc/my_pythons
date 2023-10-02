@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lang_support"
-version = "1.2"
+version = "1.2.4"
 authors = [
   { name="Mateusz Ferenc", email="ferenc.mateusz.priv@gmail.com" },
 ]
@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "simpldlogger>1.2",
+    "simpldlogger>=1.2.3",
 ]
 
 [project.urls]

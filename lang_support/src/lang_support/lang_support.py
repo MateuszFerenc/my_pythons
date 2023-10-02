@@ -1,6 +1,9 @@
-from os import listdir, path
+from os import listdir
+from os.path import dirname, abspath, join, basename
 from re import match
+from importlib import import_module
 
+dl_instance = None
 
 class LangSupport:
     
@@ -10,6 +13,8 @@ class LangSupport:
         ".. '#' ends parameter placeholder\n"\
         ".. '..' starts single line comment, not interpreted\n"\
         ".. '{}' use for string format"
+    
+    __slot__ = ["__init__", "create_lang_file", "get_languages", "set_language", "get_text", "ext_text"]
         
     def __init__(self, directory: str = None, ignore_file_error: bool = False, ignore_key_error: bool = False, ignore_dict_error: str = False) -> None:
         assert directory is not None
@@ -19,8 +24,8 @@ class LangSupport:
         self.lang_list = []
         self.language = "EN_us"  # default language
         self.dictionary = {}  # language dictionary
-        self.path = path.dirname(__file__)
-        self.directory = path.join(self.path, directory)
+        self.path = dirname(abspath(__file__))
+        self.directory = join(self.path, directory)
 
         self.ignore_file_error = ignore_file_error
         self.ignore_key_error = ignore_key_error
@@ -34,7 +39,7 @@ class LangSupport:
             return False
         
         try:
-            with open(path.join(self.directory, lang), "x") as new_file:
+            with open(join(self.directory, lang), "x") as new_file:
                 for line in LangSupport.lang_file_template.split('\n'):
                     new_file.write(line + '\n')
         except FileExistsError:
@@ -66,7 +71,7 @@ class LangSupport:
             print(f"Languages not indexed or not present in directory!")
             return None
         try:
-            file = path.join(self.directory, self.language)
+            file = join(self.directory, self.language)
             with open(file, "r", encoding="utf-8") as lang_data:
                 self.dictionary = {}
                 for line in lang_data:
@@ -118,6 +123,30 @@ class LangSupport:
         except IndexError:
             pass
         return text.replace(r'\n', '\n').replace(r'\t', '\t')
+    
+
+class LangSupportDL:
+    
+    __slot__ = ["__init__"]
+
+    def __init__(self, directory: str = None, ignore_file_error: bool = False, ignore_key_error: bool = False, ignore_dict_error: str = False):
+        assert directory is not None
+
+        global dl_instance 
+        dl_module = import_module("simpldlogger.datalogger")
+        dl_instance = dl_module.SimpleDataLogger(f"{basename(__file__).split('.')[0]}({directory})", 'logs')
+
+        return LangSupport(directory=directory, ignore_file_error=ignore_file_error, ignore_key_error=ignore_key_error, ignore_dict_error=ignore_dict_error)
+
+
+def do_print(text: str, log_type: int) -> None:
+    assert type(text) is str
+    assert type(log_type) is int
+
+    if dl_instance is None:
+        print(text)
+    else:
+        dl_instance.log(text, log_type)
 
 
 if __name__ == "__main__":

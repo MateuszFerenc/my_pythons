@@ -10,17 +10,33 @@ Install via pip:
 To run example:
 ```bash
 cd lang_support
-py -m example.main
+py -m tests.main
 ```  
+<br>
 
-There is also ***lang_support_data_logger.py*** file, which is the same LangSupport class but print functions were changed to logging functions (to enable logging output to file instead of standard output)  
+Import **LangSupport** class:  
+`import lang_support.lang_support`
+or
+`from lang_support.lang_support import LangSupport`
+<br>  
+
+Import **LangSupportDL** class:  
+`import lang_support.lang_support_data_logger`
+or
+`from lang_support.lang_support_data_logger import LangSupportDL`
 
 
-### ***generate_translation.py*** file is a script which read one language file and generate translation for selected language (deepl package and token needed)
+### ***generate_translation.py*** file is a script which read specified language file and generate translation for selected language (deepl package and token needed)
 
-Place Deepl doken in ***data_token.json*** file like below:  
+Place DeepL token in ***data_token.json*** file (in directory with ***generate_translation.py*** file) like below:  
 ```json
 {
     "deepl-token": "your-token"
 }
+```  
+To run translation generator, enter following commands:
+```bash
+cd lang_support
+pip install deepl   # if not installed
+py -m tests.generate_translation.generate_translation.generate_translation --help
 ```
