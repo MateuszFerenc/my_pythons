@@ -1,7 +1,8 @@
 from os import listdir
-from os.path import dirname, abspath, join, basename
+from os.path import abspath, join, basename, dirname
 from re import match
 from importlib import import_module
+from sys import argv
 
 dl_instance = None
 
@@ -24,7 +25,7 @@ class LangSupport:
         self.lang_list = []
         self.language = "EN_us"  # default language
         self.dictionary = {}  # language dictionary
-        self.path = dirname(abspath(__file__))
+        self.path = dirname(abspath(argv[0]))
         self.directory = join(self.path, directory)
 
         self.ignore_file_error = ignore_file_error
@@ -52,7 +53,7 @@ class LangSupport:
         try:
             files = listdir(self.directory)
         except FileNotFoundError:
-            print(f"Directory {self.directory} does not exist")
+            do_print(f"Directory {self.directory} does not exist", log_type=3)
             exit(3)
         self.lang_list = []
         for Lang in files:
@@ -65,10 +66,10 @@ class LangSupport:
         assert type(dump) is bool
         if len(self.lang_list):
             if lang not in self.lang_list:
-                print(f"{lang} language not found.")
+                do_print(f"{lang} language not found.", log_type=1)
             self.language = lang
         else:
-            print(f"Languages not indexed or not present in directory!")
+            do_print(f"Languages not indexed or not present in directory!", log_type=2)
             return None
         try:
             file = join(self.directory, self.language)
@@ -83,10 +84,10 @@ class LangSupport:
                 if dump:
                     return self.dictionary
         except FileNotFoundError:
-            print(f"File {file} not found!")
+            do_print(f"File {file} not found!", log_type=2)
             if not self.ignore_file_error:
                 exit(3)
-            print(f"Exit disabled by ignore_file_error flag.")
+            do_print(f"Exit disabled by ignore_file_error flag.")
 
     def get_text(self, dict_key: str, *args) -> ( None | str ):
         text = None
@@ -94,21 +95,21 @@ class LangSupport:
             text = str(self.dictionary[dict_key])  # get text value based on key
         except KeyError:
             if len(self.dictionary):
-                print(f"{dict_key} key not found in {self.language} language file.")
+                do_print(f"{dict_key} key not found in {self.language} language file.", log_type=2)
                 if self.ignore_key_error:
-                    print(f"Exit disabled by ignore_key_error flag.")
+                    do_print(f"Exit disabled by ignore_key_error flag.")
                     return dict_key
             else:
-                print(f"Language: {self.language} not loaded!")
+                do_print(f"Language: {self.language} not loaded!")
                 if self.ignore_dict_error:
-                    print(f"Exit disabled by ignore_dict_error flag.")
+                    do_print(f"Exit disabled by ignore_dict_error flag.")
                     return dict_key
             exit(3)
         try:
             text = text.format(*args)   # try to format text with arguments, if any specified
         except IndexError:
             if text.find("{}"):
-                print(f"Key: {dict_key} can be formatted, but no args were given.")
+                do_print(f"Key: {dict_key} can be formatted, but no args were given.", log_type=1)
         return text.replace(r'\n', '\n').replace(r'\t', '\t')
     
     @staticmethod
@@ -125,7 +126,7 @@ class LangSupport:
         return text.replace(r'\n', '\n').replace(r'\t', '\t')
     
 
-class LangSupportDL:
+class LangSupportDL(LangSupport):
     
     __slot__ = ["__init__"]
 
@@ -136,10 +137,10 @@ class LangSupportDL:
         dl_module = import_module("simpldlogger.datalogger")
         dl_instance = dl_module.SimpleDataLogger(f"{basename(__file__).split('.')[0]}({directory})", 'logs')
 
-        return LangSupport(directory=directory, ignore_file_error=ignore_file_error, ignore_key_error=ignore_key_error, ignore_dict_error=ignore_dict_error)
+        super().__init__(directory=directory, ignore_file_error=ignore_file_error, ignore_key_error=ignore_key_error, ignore_dict_error=ignore_dict_error)
 
 
-def do_print(text: str, log_type: int) -> None:
+def do_print(text: str, log_type: int = 0) -> None:
     assert type(text) is str
     assert type(log_type) is int
 

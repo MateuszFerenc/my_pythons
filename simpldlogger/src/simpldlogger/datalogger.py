@@ -1,6 +1,7 @@
 from os import mkdir
 from datetime import datetime
-from os.path import dirname, abspath, join
+from os.path import join, dirname, abspath
+from sys import argv
 
 class SimpleDataLogger:
     
@@ -15,7 +16,7 @@ class SimpleDataLogger:
 
         self.__class__.instances.append(self)
         self.do_log = not debug
-        self.path = dirname(abspath(__file__))
+        self.path = dirname(abspath(argv[0]))
         self.directory = ""
         self.logextension = "log"
         self.log_name = log_name
